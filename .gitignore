@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+build/
+dist/
+*.egg-info/
+
+# Logs
+logs/*.log
+
+# Data (Optional: if you want to keep data private)
+# data/students/*.json
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db

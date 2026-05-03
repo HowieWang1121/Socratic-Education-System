@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socratic Education System v2</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f2f0eb; 
+            --text-color: #1a1a1a;
+            --accent-color: #7d7d7d;
+            --danger-color: #d9534f;
+            --border-color: rgba(0,0,0,0.06);
+            --card-bg: rgba(255, 255, 255, 0.4);
+            --font-serif: "Georgia", serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-serif); overflow: hidden; }
+
+        .page { display: none; height: 100vh; width: 100vw; padding: 2rem; }
+        .page.active { display: flex; flex-direction: column; }
+
+        /* 登录 */
+        #login-gateway { justify-content: center; align-items: center; gap: 4rem; flex-direction: row; }
+        .login-card { 
+            width: 300px; height: 400px; background: var(--card-bg); 
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer; transition: 0.4s; border: 1px solid transparent;
+        }
+        .login-card:hover { border-color: var(--accent-color); transform: translateY(-5px); }
+        .login-form { display: none; margin-top: 2rem; width: 100%; padding: 0 2rem; }
+        .login-form input { 
+            width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--accent-color);
+            margin-bottom: 1.5rem; padding: 0.5rem; outline: none; font-family: inherit;
+        }
+        .error-msg { color: var(--danger-color); font-size: 0.8rem; margin-top: -1rem; margin-bottom: 1rem; display: none; }
+
+        /* 教师控制台 */
+        #teacher-dashboard { flex-direction: row; padding: 0; }
+        .sidebar { width: 300px; border-right: 1px solid var(--border-color); padding: 2rem; overflow-y: auto; }
+        .student-item { 
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem;
+        }
+        .student-name { cursor: pointer; flex: 1; }
+        .student-name:hover { color: var(--accent-color); }
+        .del-btn { color: var(--danger-color); cursor: pointer; font-size: 0.7rem; opacity: 0.4; transition: 0.3s; }
+        .del-btn:hover { opacity: 1; }
+
+        .main-content { flex: 1; padding: 3rem; display: flex; gap: 2rem; }
+        .panel { flex: 1; background: var(--card-bg); padding: 2rem; display: flex; flex-direction: column; }
+        #analysis-result { flex: 1; overflow-y: auto; font-size: 0.95rem; line-height: 1.8; }
+
+        /* 通用按钮 */
+        button { background: transparent; border: 1px solid var(--accent-color); padding: 0.5rem 1rem; cursor: pointer; font-family: inherit; font-size: 0.8rem; transition: 0.3s; }
+        button:hover { background: var(--text-color); color: white; }
+        .btn-danger:hover { background: var(--danger-color); border-color: var(--danger-color); }
+
+        /* 学生对话 */
+        #student-chat { max-width: 800px; margin: 0 auto; }
+        #chat-window { flex: 1; overflow-y: auto; scrollbar-width: none; }
+        .message { margin-bottom: 2.5rem; line-height: 1.8; }
+        .user-message { text-align: right; color: var(--accent-color); }
+        .tutor-message { border-left: 1px solid var(--border-color); padding-left: 1.5rem; }
+    </style>
+</head>
+<body>
+
+    <div id="login-gateway" class="page active">
+        <div class="login-card" onclick="showLoginForm('student')">
+            <h2>STUDENT</h2>
+            <div id="student-form" class="login-form">
+                <input type="text" id="stu-name" placeholder="姓名">
+                <input type="text" id="stu-id" placeholder="学号">
+                <div id="stu-error" class="error-msg">验证失败</div>
+                <button onclick="handleLogin('student')">ENTER</button>
+            </div>
+        </div>
+        <div class="login-card" onclick="showLoginForm('teacher')">
+            <h2>TEACHER</h2>
+            <div id="teacher-form" class="login-form">
+                <input type="text" id="tea-id" placeholder="工号">
+                <input type="password" id="tea-pwd" placeholder="密码">
+                <div id="tea-error" class="error-msg">验证失败</div>
+                <button onclick="handleLogin('teacher')">ACCESS</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="teacher-dashboard" class="page">
+        <div class="sidebar">
+            <h3 style="letter-spacing:0.2em; font-weight:300; margin-bottom:2rem;">STUDENTS</h3>
+            <div id="student-list"></div>
+            <button style="margin-top: 2rem; width: 100%;" onclick="logout()">LOGOUT</button>
+        </div>
+        <div class="main-content">
+            <div class="panel">
+                <h4>REGISTER</h4>
+                <input type="text" id="new-stu-name" placeholder="学生姓名" style="margin:1rem 0; padding:0.5rem; background:transparent; border:none; border-bottom:1px solid var(--border-color);">
+                <input type="text" id="new-stu-id" placeholder="学号" style="margin-bottom:1rem; padding:0.5rem; background:transparent; border:none; border-bottom:1px solid var(--border-color);">
+                <button onclick="createStudent()">CREATE ARCHIVE</button>
+            </div>
+            <div class="panel">
+                <h4>AI ANALYSIS</h4>
+                <div id="selected-info" style="font-size:0.8rem; opacity:0.5; margin:1rem 0;">未选中学生</div>
+                <div id="analysis-result">选择学生以生成报告...</div>
+                <div style="display:flex; gap:1rem; margin-top:1rem;">
+                    <button id="analyze-btn" style="display:none; flex:1;" onclick="runAnalysis()">GENERATE REPORT</button>
+                    <button id="recommend-btn" style="display:none; flex:1;" onclick="runRecommendation()">GET ADVICE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="student-chat" class="page">
+        <header style="text-align:center; margin-bottom:2rem;">
+            <h1 id="display-name" style="font-weight:300; letter-spacing:0.2em;">STUDENT</h1>
+        </header>
+        <div id="chat-window"></div>
+        <div style="border-top:1px solid var(--border-color); padding-top:1.5rem; display:flex; gap:1rem;">
+            <input type="text" id="chat-input" placeholder="输入你的困惑..." style="flex:1; background:transparent; border:none; outline:none; font-family:inherit; font-size:1.1rem;">
+            <button onclick="sendChatMessage()">SEND</button>
+            <button onclick="logout()">EXIT</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8000";
+        let user = null;
+        let selectedSid = null;
+        let chatHistory = [];
+
+        function navigate(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function showLoginForm(role) {
+            event.stopPropagation();
+            document.querySelectorAll('.login-form').forEach(f => f.style.display = 'none');
+            document.getElementById(`${role}-form`).style.display = 'block';
+        }
+
+        async function handleLogin(role) {
+            const username = role === 'teacher' ? document.getElementById('tea-id').value : document.getElementById('stu-name').value;
+            const password = role === 'teacher' ? document.getElementById('tea-pwd').value : document.getElementById('stu-id').value;
+            try {
+                const res = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role, username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    user = data;
+                    if (role === 'teacher') { loadStudents(); navigate('teacher-dashboard'); }
+                    else { document.getElementById('display-name').textContent = data.name; navigate('student-chat'); }
+                } else { document.getElementById(`${role === 'teacher'?'tea':'stu'}-error`).style.display='block'; }
+            } catch(e) { alert("Server connection failed"); }
+        }
+
+        async function logout() { 
+            if (user && user.role === 'student' && chatHistory.length > 0) {
+                // 退出前同步对话分析
+                try {
+                    await fetch(`${API_BASE}/chat/end`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            student_id: user.student_id, 
+                            history: chatHistory 
+                        })
+                    });
+                } catch (e) { console.error("Sync failed", e); }
+            }
+            user = null; 
+            location.reload(); 
+        }
+
+        async function loadStudents() {
+            const res = await fetch(`${API_BASE}/teacher/students`, { headers: { 'x-token': user.token }});
+            const data = await res.json();
+            document.getElementById('student-list').innerHTML = data.map(s => `
+                <div class="student-item">
+                    <span class="student-name" onclick="selectStudent('${s.id}', '${s.name}')">${s.name} (${s.id})</span>
+                    <span class="del-btn" onclick="confirmDelete('${s.id}', '${s.name}')">DELETE</span>
+                </div>
+            `).join('');
+        }
+
+        async function createStudent() {
+            const nameEl = document.getElementById('new-stu-name');
+            const idEl = document.getElementById('new-stu-id');
+            const name = nameEl.value.trim();
+            const student_id = idEl.value.trim();
+            
+            if (!name || !student_id) {
+                alert("请填写姓名和学号");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/teacher/students`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-token': user.token },
+                    body: JSON.stringify({ student_id, name, tags: ["新入库"] })
+                });
+                
+                if (res.ok) {
+                    alert("学生档案创建成功");
+                    nameEl.value = '';
+                    idEl.value = '';
+                    loadStudents();
+                } else {
+                    const data = await res.json();
+                    alert(`创建失败: ${data.detail || '未知错误'}`);
+                }
+            } catch (e) {
+                alert("网络请求失败");
+            }
+        }
+
+        async function confirmDelete(id, name) {
+            if (confirm(`确定要永久删除学生 ${name} (${id}) 的所有档案吗？此操作不可撤销。`)) {
+                try {
+                    const res = await fetch(`${API_BASE}/teacher/students/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'x-token': user.token }
+                    });
+                    
+                    if (res.ok) { 
+                        alert("已成功删除"); 
+                        if(selectedSid === id) { 
+                            selectedSid = null; 
+                            document.getElementById('selected-info').textContent = "未选中学生"; 
+                            document.getElementById('analyze-btn').style.display = 'none';
+                            document.getElementById('recommend-btn').style.display = 'none';
+                            document.getElementById('analysis-result').innerHTML = "选择学生以生成报告...";
+                        }
+                        loadStudents(); 
+                    } else {
+                        const errorData = await res.json();
+                        alert(`删除失败: ${errorData.detail || '未知错误'}`);
+                    }
+                } catch (e) {
+                    console.error("Delete error:", e);
+                    alert("网络请求失败，请检查后端服务是否运行");
+                }
+            }
+        }
+
+        function selectStudent(id, name) {
+            selectedSid = id;
+            document.getElementById('selected-info').textContent = `选中: ${name}`;
+            document.getElementById('analyze-btn').style.display = 'block';
+            document.getElementById('recommend-btn').style.display = 'block';
+        }
+
+        async function runAnalysis() {
+            const btn = document.getElementById('analyze-btn');
+            btn.textContent = "GENERATING...";
+            btn.disabled = true;
+            try {
+                const res = await fetch(`${API_BASE}/teacher/analysis`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-token': user.token },
+                    body: JSON.stringify({ student_id: selectedSid })
+                });
+                const data = await res.json();
+                document.getElementById('analysis-result').innerHTML = marked.parse(data.analysis);
+            } catch (e) { alert("分析失败"); }
+            btn.textContent = "GENERATE REPORT";
+            btn.disabled = false;
+        }
+
+        async function runRecommendation() {
+            const btn = document.getElementById('recommend-btn');
+            btn.textContent = "GENERATING...";
+            btn.disabled = true;
+            try {
+                const res = await fetch(`${API_BASE}/teacher/recommendation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-token': user.token },
+                    body: JSON.stringify({ student_id: selectedSid })
+                });
+                const data = await res.json();
+                document.getElementById('analysis-result').innerHTML = marked.parse(data.recommendation);
+            } catch (e) { alert("生成建议失败"); }
+            btn.textContent = "GET ADVICE";
+            btn.disabled = false;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim(); if(!text) return;
+            input.value = '';
+            addMsg(text, 'user');
+            chatHistory.push({ role: "user", content: text });
+            
+            const tutorMsg = addMsg('', 'tutor');
+            const res = await fetch(`${API_BASE}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: user.student_id, message: text })
+            });
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = "";
+            while(true) {
+                const {done, value} = await reader.read();
+                if(done) break;
+                fullText += decoder.decode(value);
+                tutorMsg.innerHTML = marked.parse(fullText);
+                renderMathInElement(tutorMsg, { delimiters: [{left: "$", right: "$", display: false}] });
+                document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
+            }
+            chatHistory.push({ role: "assistant", content: fullText });
+        }
+
+        function addMsg(text, role) {
+            const div = document.createElement('div');
+            div.className = `message ${role}-message`;
+            div.innerHTML = text;
+            document.getElementById('chat-window').appendChild(div);
+            return div;
+        }
+    </script>
+</body>
+</html>
