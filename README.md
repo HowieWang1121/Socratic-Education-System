@@ -67,5 +67,11 @@ python3 multi_agent_tutor.py
 
 本项目采用 [MIT 许可证](LICENSE)。您可以自由地使用、修改和分发。
 
+## 🤝 Community & Maintenance
+
+- **维护计划**：本项目将持续优化 Profiler Agent 的诊断逻辑，并计划引入更丰富的学科知识库。
+- **参与贡献**：我们非常欢迎 Pull Requests！在提交之前，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- **反馈与支持**：如果您发现任何 Bug 或有功能建议，请通过 GitHub Issues 提交。
+
 ---
 *由 AI 驱动，为每一个孩子提供苏格拉底式的智慧启迪。*
